@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ちいかわクイズアプリ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+      background-color: #fefce8;
+    }
+    .quiz-card {
+      background-size: cover;
+      background-position: center;
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(4px);
+    }
+  </style>
+</head>
+<body class="min-h-screen text-gray-800 flex justify-center items-start p-2 sm:p-4">
+
+  <!-- メインコンテナ（スマホ枠風） -->
+  <div class="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border-4 border-pink-200 min-h-[90vh] flex flex-col relative">
+    
+    <!-- ヘッダー -->
+    <header class="bg-pink-300 p-4 text-white font-bold flex justify-between items-center shadow">
+      <h1 class="text-lg tracking-wide cursor-pointer" onclick="showScreen('screen-user-select')">🌸 ちいかわクイズ</h1>
+      <div id="header-user-info" class="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold shadow-sm hidden"></div>
+    </header>
+
+    <!-- メインコンテンツ領域 -->
+    <main class="p-4 flex-1 overflow-y-auto">
+
+      <!-- 1. ユーザー選択・新規登録画面 -->
+      <section id="screen-user-select" class="space-y-4">
+        <h2 class="text-xl font-bold text-center text-pink-500">ユーザーを選択</h2>
+        <div id="user-list" class="grid grid-cols-2 gap-3"></div>
+        <button onclick="openUserModal()" class="w-full py-3 bg-pink-400 hover:bg-pink-500 text-white font-bold rounded-2xl shadow transition">
+          ＋ 新しいユーザーを作る
+        </button>
+        <button onclick="showScreen('screen-admin')" class="w-full py-2 bg-gray-200 text-gray-600 font-bold rounded-xl text-sm">
+          ⚙️ クイズの作成・管理
+        </button>
+      </section>
+
+      <!-- 2. ダッシュボード（ユーザーマイページ） -->
+      <section id="screen-dashboard" class="hidden space-y-4">
+        <div class="bg-pink-50 p-4 rounded-2xl border border-pink-100 flex items-center gap-4">
+          <img id="dash-avatar" class="w-16 h-16 rounded-full object-cover border-2 border-pink-300 bg-white" src="" alt="avatar">
+          <div>
+            <h3 id="dash-username" class="text-lg font-bold text-gray-800"></h3>
+            <button onclick="editCurrentUser()" class="text-xs text-pink-500 underline font-bold">プロフィール編集</button>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="font-bold text-gray-700 flex items-center gap-1">🏆 合格実績・最高得点</h4>
+          <div id="dash-stats" class="space-y-2 text-sm"></div>
+        </div>
+
+        <hr class="border-pink-100">
+
+        <h4 class="font-bold text-gray-700">🎯 クイズに挑戦（10問以上必要）</h4>
+        <div id="available-quiz-list" class="space-y-2"></div>
+
+        <button onclick="showScreen('screen-user-select')" class="w-full py-2 border border-gray-300 text-gray-600 rounded-xl font-bold text-sm">
+          ユーザー切替
+        </button>
+      </section>
+
+      <!-- 3. クイズプレイ画面 -->
+      <section id="screen-quiz-play" class="hidden h-full flex flex-col justify-between">
+        <div id="quiz-bg-card" class="quiz-card rounded-2xl p-4 min-h-[350px] flex flex-col justify-between border-2 border-pink-200 shadow-inner relative overflow-hidden">
+          <div class="glass-panel p-3 rounded-xl flex justify-between font-bold text-sm text-pink-600">
+            <span id="quiz-progress">Q.1 / 10</span>
+            <span id="quiz-title-display"></span>
+          </div>
+
+          <!-- 問題画像表示エリア -->
+          <div id="quiz-image-container" class="my-2 text-center hidden">
+            <img id="quiz-question-image" class="max-h-40 mx-auto rounded-lg shadow-md object-contain bg-white/80 p-1" src="" alt="問題画像">
+          </div>
+
+          <!-- 問題文 -->
+          <div class="glass-panel p-4 rounded-xl shadow-md my-auto">
+            <p id="quiz-question-text" class="font-bold text-gray-800 leading-relaxed text-center"></p>
+          </div>
+        </div>
+
+        <!-- 4択選択肢 -->
+        <div id="quiz-options" class="grid grid-cols-1 gap-2 mt-4"></div>
+      </section>
+
+      <!-- 4. 結果画面 -->
+      <section id="screen-result" class="hidden text-center space-y-4 py-6">
+        <div id="result-badge" class="text-5xl font-black"></div>
+        <h3 id="result-status" class="text-2xl font-bold"></h3>
+        <p class="text-gray-600">あなたのスコア: <span id="result-score" class="text-3xl font-extrabold text-pink-500"></span> 点</p>
+        <p id="result-msg" class="text-sm font-bold text-gray-500"></p>
+
+        <!-- 各問題の正誤一覧エリア -->
+        <div class="text-left mt-6 space-y-3">
+          <h4 class="font-bold text-sm text-gray-700 border-b pb-1">📝 解答結果一覧</h4>
+          <div id="result-answer-list" class="space-y-2 text-xs"></div>
+        </div>
+
+        <button onclick="showScreen('screen-dashboard')" class="w-full py-3 bg-pink-400 text-white font-bold rounded-2xl shadow mt-4">
+          マイページに戻る
+        </button>
+      </section>
+
+      <!-- 5. クイズ作成・管理画面 -->
+      <section id="screen-admin" class="hidden space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-bold text-pink-500">⚙️ クイズデータ管理</h2>
+          <button onclick="showScreen('screen-user-select')" class="text-xs bg-gray-200 px-2 py-1 rounded">戻る</button>
+        </div>
+
+        <!-- クイズ新規登録 -->
+        <div class="bg-pink-50 p-3 rounded-xl space-y-2 border border-pink-100">
+          <h3 class="font-bold text-sm">新しいクイズを作成</h3>
+          <input id="new-quiz-title" type="text" placeholder="例: ちいかわ物知り検定" class="w-full p-2 text-sm border rounded-lg">
+          <select id="new-quiz-level" class="w-full p-2 text-sm border rounded-lg">
+            <option value="初級">初級</option>
+            <option value="中級">中級</option>
+            <option value="上級">上級</option>
+          </select>
+          <button onclick="addQuizCategory()" class="w-full py-2 bg-pink-400 text-white font-bold text-sm rounded-lg">作成</button>
+        </div>
+
+        <!-- 登録済みクイズ一覧 -->
+        <div id="admin-quiz-list" class="space-y-3"></div>
+      </section>
+
+      <!-- 6. 問題作成フォーム（特定クイズ内） -->
+      <section id="screen-question-builder" class="hidden space-y-3">
+        <div class="flex justify-between items-center">
+          <h3 id="builder-quiz-title" class="font-bold text-pink-500"></h3>
+          <button onclick="showScreen('screen-admin')" class="text-xs bg-gray-200 px-2 py-1 rounded">一覧に戻る</button>
+        </div>
+
+        <form id="question-form" onsubmit="saveQuestion(event)" class="bg-gray-50 p-3 rounded-xl space-y-2 text-sm border">
+          <h4 id="form-heading" class="font-bold text-gray-700">問題の追加</h4>
+          <textarea id="q-text" required placeholder="問題文を入力" class="w-full p-2 border rounded-lg"></textarea>
+          
+          <div>
+            <label class="block text-xs text-gray-500">問題画像 (任意)</label>
+            <input id="q-img" type="file" accept="image/*" class="w-full text-xs">
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-500">問題の背景画像 (任意)</label>
+            <input id="q-bg" type="file" accept="image/*" class="w-full text-xs">
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-xs text-gray-500 font-bold">選択肢 (上が正解になります)</label>
+            <input id="q-opt1" required placeholder="正解の選択肢" class="w-full p-1.5 border rounded border-green-400 bg-green-50">
+            <input id="q-opt2" required placeholder="不正解 1" class="w-full p-1.5 border rounded">
+            <input id="q-opt3" required placeholder="不正解 2" class="w-full p-1.5 border rounded">
+            <input id="q-opt4" required placeholder="不正解 3" class="w-full p-1.5 border rounded">
+          </div>
+
+          <div class="flex gap-2">
+            <button type="submit" id="form-submit-btn" class="w-full py-2 bg-green-500 text-white font-bold rounded-lg shadow">問題を追加保存</button>
+            <button type="button" id="form-cancel-btn" onclick="resetQuestionForm()" class="hidden py-2 px-3 bg-gray-300 text-gray-700 font-bold rounded-lg text-xs">キャンセル</button>
+          </div>
+        </form>
+
+        <h4 class="font-bold text-gray-700 text-sm mt-4">登録済み問題一覧 (<span id="q-count">0</span>)</h4>
+        <div id="builder-questions-list" class="space-y-2 text-xs"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ユーザーモーダル (新規作成・編集) -->
+  <div id="user-modal" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center p-4 z-50">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-4 space-y-3">
+      <h3 id="modal-title" class="font-bold text-lg text-pink-500">ユーザー登録</h3>
+      <input id="user-name-input" type="text" placeholder="ユーザー名" class="w-full p-2 border rounded-lg text-sm">
+      
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">アバター画像を選択</label>
+        <div id="avatar-picker" class="flex gap-2 overflow-x-auto p-1"></div>
+        <div class="mt-2">
+          <label class="block text-xs text-gray-500">または画像をアップロード</label>
+          <input id="user-avatar-file" type="file" accept="image/*" onchange="handleAvatarUpload(event)" class="text-xs w-full mt-1">
+        </div>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeUserModal()" class="w-1/2 py-2 border rounded-lg font-bold text-gray-500">キャンセル</button>
+        <button onclick="saveUser()" class="w-1/2 py-2 bg-pink-400 text-white font-bold rounded-lg">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 問題コピー先選択モーダル -->
+  <div id="copy-modal" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center p-4 z-50">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-4 space-y-3">
+      <h3 class="font-bold text-lg text-pink-500">問題のコピー先を選択</h3>
+      <p class="text-xs text-gray-500">コピー先のクイズを選んでください：</p>
+      <div id="copy-quiz-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+      <button onclick="closeCopyModal()" class="w-full py-2 border rounded-lg font-bold text-gray-500 text-xs">キャンセル</button>
+    </div>
+  </div>
+
+  <script>
+    // --- データストレージ管理（安全なロード処理） ---
+    const DB_KEY = 'CHIIKAWA_QUIZ_DB_V1';
+    
+    let defaultDb = {
+      users: [],
+      quizzes: [],
+      avatars: [
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Chiikawa',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Hachiware',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Usagi'
+      ]
+    };
+
+    let savedDataRaw = localStorage.getItem(DB_KEY);
+    let db = defaultDb;
+
+    if (savedDataRaw) {
+      try {
+        const parsed = JSON.parse(savedDataRaw);
+        db = {
+          users: Array.isArray(parsed.users) ? parsed.users : [],
+          quizzes: Array.isArray(parsed.quizzes) ? parsed.quizzes : [],
+          avatars: Array.isArray(parsed.avatars) && parsed.avatars.length > 0 ? parsed.avatars : defaultDb.avatars
+        };
+      } catch (e) {
+        console.error('データの読み込みに失敗したため初期化します', e);
+      }
+    }
+
+    let currentUser = null;
+    let activeQuiz = null;
+    let currentQuestions = [];
+    let currentQIndex = 0;
+    let userScore = 0;
+    let userAnswersLog = []; // 各問題の解答履歴を保存する配列
+    let editingUserId = null;
+    let tempAvatarUrl = '';
+    let currentQuizIdForBuilding = null;
+    let copyingQuestionItem = null;
+    let editingQuestionId = null;
+
+    function saveData() {
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+    }
+
+    // --- 画面切替関数 ---
+    function showScreen(screenId) {
+      document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+      document.getElementById(screenId).classList.remove('hidden');
+
+      const headerInfo = document.getElementById('header-user-info');
+      if (currentUser && screenId !== 'screen-user-select') {
+        headerInfo.innerText = currentUser.name;
+        headerInfo.classList.remove('hidden');
+      } else {
+        headerInfo.classList.add('hidden');
+      }
+
+      if (screenId === 'screen-user-select') renderUserList();
+      if (screenId === 'screen-dashboard') renderDashboard();
+      if (screenId === 'screen-admin') renderAdminList();
+    }
+
+    // --- ユーザー管理 ---
+    function renderUserList() {
+      const container = document.getElementById('user-list');
+      if (db.users.length === 0) {
+        container.innerHTML = `<p class="col-span-2 text-xs text-center text-gray-400 py-4">登録されているユーザーがいません。<br>下のボタンから作成してください。</p>`;
+        return;
+      }
+      container.innerHTML = db.users.map(u => `
+        <div onclick="selectUser('${u.id}')" class="bg-pink-50 hover:bg-pink-100 p-3 rounded-2xl text-center border border-pink-200 cursor-pointer transition shadow-sm">
+          <img src="${u.avatar}" class="w-16 h-16 rounded-full mx-auto object-cover border-2 border-pink-300 bg-white mb-2">
+          <p class="font-bold text-sm text-gray-700 truncate">${u.name}</p>
+        </div>
+      `).join('');
+    }
+
+    function selectUser(userId) {
+      currentUser = db.users.find(u => u.id === userId);
+      showScreen('screen-dashboard');
+    }
+
+    function openUserModal(userId = null) {
+      editingUserId = userId;
+      const modal = document.getElementById('user-modal');
+      const title = document.getElementById('modal-title');
+      const nameInput = document.getElementById('user-name-input');
+      
+      if (userId) {
+        const u = db.users.find(x => x.id === userId);
+        title.innerText = 'ユーザー編集';
+        nameInput.value = u.name;
+        tempAvatarUrl = u.avatar;
+      } else {
+        title.innerText = 'ユーザー作成';
+        nameInput.value = '';
+        tempAvatarUrl = db.avatars[0] || '';
+      }
+
+      renderAvatarPicker();
+      modal.classList.remove('hidden');
+    }
+
+    function closeUserModal() {
+      document.getElementById('user-modal').classList.add('hidden');
+    }
+
+    function renderAvatarPicker() {
+      const picker = document.getElementById('avatar-picker');
+      picker.innerHTML = db.avatars.map(url => `
+        <img src="${url}" onclick="tempAvatarUrl='${url}'; renderAvatarPicker();" 
+             class="w-12 h-12 rounded-full cursor-pointer border-4 object-cover ${tempAvatarUrl === url ? 'border-pink-500 scale-105' : 'border-transparent'}">
+      `).join('');
+    }
+
+    function handleAvatarUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const dataUrl = evt.target.result;
+        if (!db.avatars.includes(dataUrl)) {
+          db.avatars.push(dataUrl);
+        }
+        tempAvatarUrl = dataUrl;
+        renderAvatarPicker();
+        saveData();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function saveUser() {
+      const name = document.getElementById('user-name-input').value.trim();
+      if (!name) return alert('名前を入力してください');
+
+      if (editingUserId) {
+        const u = db.users.find(x => x.id === editingUserId);
+        u.name = name;
+        u.avatar = tempAvatarUrl;
+      } else {
+        db.users.push({
+          id: 'u_' + Date.now(),
+          name: name,
+          avatar: tempAvatarUrl,
+          scores: {}
+        });
+      }
+      saveData();
+      closeUserModal();
+      if (currentUser && currentUser.id === editingUserId) {
+        currentUser = db.users.find(u => u.id === editingUserId);
+        renderDashboard();
+      } else {
+        renderUserList();
+      }
+    }
+
+    function editCurrentUser() {
+      if (currentUser) openUserModal(currentUser.id);
+    }
+
+    // --- ダッシュボード / クイズ一覧 ---
+    function renderDashboard() {
+      document.getElementById('dash-avatar').src = currentUser.avatar;
+      document.getElementById('dash-username').innerText = currentUser.name;
+
+      const statsContainer = document.getElementById('dash-stats');
+      const playedQuizzes = Object.keys(currentUser.scores || {});
+
+      if (playedQuizzes.length === 0) {
+        statsContainer.innerHTML = `<p class="text-xs text-gray-400">まだクイズの履歴がありません。</p>`;
+      } else {
+        statsContainer.innerHTML = playedQuizzes.map(qId => {
+          const q = db.quizzes.find(x => x.id === qId);
+          if (!q) return '';
+          const scoreData = currentUser.scores[qId];
+          return `
+            <div class="flex justify-between items-center bg-white p-2 rounded-lg border border-pink-100">
+              <span class="font-bold text-xs">${q.title} (${q.level})</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-gray-500">最高: ${scoreData.bestScore}点</span>
+                ${scoreData.passed ? '<span class="bg-green-100 text-green-600 text-xs px-2 py-0.5 rounded-full font-bold">合格 💮</span>' : '<span class="bg-gray-100 text-gray-400 text-xs px-2 py-0.5 rounded-full">未合格</span>'}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const availableContainer = document.getElementById('available-quiz-list');
+      const playableQuizzes = db.quizzes.filter(q => q.questions && q.questions.length >= 10);
+
+      if (playableQuizzes.length === 0) {
+        availableContainer.innerHTML = `<p class="text-xs text-gray-400">遊べるクイズ（10問以上登録済み）がまだありません。管理画面から問題を追加してください。</p>`;
+      } else {
+        availableContainer.innerHTML = playableQuizzes.map(q => `
+          <div class="bg-pink-100 p-3 rounded-xl flex justify-between items-center shadow-sm">
+            <div>
+              <span class="text-xs bg-pink-400 text-white font-bold px-2 py-0.5 rounded-full">${q.level}</span>
+              <h5 class="font-bold text-sm text-gray-800 mt-1">${q.title}</h5>
+            </div>
+            <button onclick="startQuiz('${q.id}')" class="bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs px-4 py-2 rounded-xl shadow">
+              挑戦する
+            </button>
+          </div>
+        `).join('');
+      }
+    }
+
+    // --- クイズロジック ---
+    function startQuiz(quizId) {
+      activeQuiz = db.quizzes.find(q => q.id === quizId);
+      const shuffled = [...activeQuiz.questions].sort(() => 0.5 - Math.random());
+      currentQuestions = shuffled.slice(0, 10);
+      currentQIndex = 0;
+      userScore = 0;
+      userAnswersLog = []; // 履歴を初期化
+
+      showScreen('screen-quiz-play');
+      renderQuestion();
+    }
+
+    function renderQuestion() {
+      const q = currentQuestions[currentQIndex];
+      document.getElementById('quiz-progress').innerText = `Q.${currentQIndex + 1} / 10`;
+      document.getElementById('quiz-title-display').innerText = activeQuiz.title;
+      document.getElementById('quiz-question-text').innerText = q.text;
+
+      const card = document.getElementById('quiz-bg-card');
+      if (q.bgImg) {
+        card.style.backgroundImage = `url('${q.bgImg}')`;
+      } else {
+        card.style.backgroundImage = 'none';
+        card.style.backgroundColor = '#fff5f7';
+      }
+
+      const imgContainer = document.getElementById('quiz-image-container');
+      const qImg = document.getElementById('quiz-question-image');
+      if (q.qImg) {
+        qImg.src = q.qImg;
+        imgContainer.classList.remove('hidden');
+      } else {
+        imgContainer.classList.add('hidden');
+      }
+
+      const optionsContainer = document.getElementById('quiz-options');
+      const shuffledOpts = [...q.options].sort(() => 0.5 - Math.random());
+
+      optionsContainer.innerHTML = shuffledOpts.map(opt => `
+        <button onclick="answerQuestion('${opt.replace(/'/g, "\\'")}')" 
+                class="w-full py-3 px-4 bg-white hover:bg-pink-50 border-2 border-pink-200 text-gray-800 font-bold rounded-xl shadow-sm text-sm text-left transition active:scale-95">
+          ${opt}
+        </button>
+      `).join('');
+    }
+
+    function answerQuestion(selected) {
+      const q = currentQuestions[currentQIndex];
+      const isCorrect = (selected === q.answer);
+
+      if (isCorrect) {
+        userScore += 10;
+      }
+
+      // 解答結果をログに保存
+      userAnswersLog.push({
+        questionText: q.text,
+        selectedAnswer: selected,
+        correctAnswer: q.answer,
+        isCorrect: isCorrect
+      });
+
+      currentQIndex++;
+      if (currentQIndex < 10) {
+        renderQuestion();
+      } else {
+        finishQuiz();
+      }
+    }
+
+    function finishQuiz() {
+      const passed = userScore >= 80;
+
+      if (!currentUser.scores) currentUser.scores = {};
+      const prev = currentUser.scores[activeQuiz.id] || { bestScore: 0, passed: false };
+      
+      currentUser.scores[activeQuiz.id] = {
+        bestScore: Math.max(prev.bestScore, userScore),
+        passed: prev.passed || passed
+      };
+
+      const userIdx = db.users.findIndex(u => u.id === currentUser.id);
+      if (userIdx !== -1) db.users[userIdx] = currentUser;
+      saveData();
+
+      document.getElementById('result-score').innerText = userScore;
+      const badge = document.getElementById('result-badge');
+      const status = document.getElementById('result-status');
+      const msg = document.getElementById('result-msg');
+
+      if (passed) {
+        badge.innerText = '💮';
+        status.innerText = '合格！おめでとう！';
+        status.className = 'text-2xl font-bold text-green-500';
+        msg.innerText = '素晴らしい成果です！この調子で頑張りましょう！';
+      } else {
+        badge.innerText = '㊀';
+        status.innerText = '不合格...';
+        status.className = 'text-2xl font-bold text-red-400';
+        msg.innerText = '80点以上で合格です。もう一度チャレンジしてみよう！';
+      }
+
+      // 解答結果の一覧を生成して表示
+      const answerListContainer = document.getElementById('result-answer-list');
+      answerListContainer.innerHTML = userAnswersLog.map((log, idx) => `
+        <div class="p-2.5 rounded-xl border ${log.isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
+          <div class="flex justify-between items-center font-bold mb-1">
+            <span class="text-gray-700">Q${idx + 1}. ${log.questionText}</span>
+            <span class="${log.isCorrect ? 'text-green-600 bg-green-100' : 'text-red-500 bg-red-100'} px-2 py-0.5 rounded text-[10px]">
+              ${log.isCorrect ? '⭕ 正解 (+10pt)' : '❌ 不正解'}
+            </span>
+          </div>
+          <div class="text-[11px] text-gray-600 space-y-0.5 mt-1">
+            <p>あなたの回答: <span class="font-bold ${log.isCorrect ? 'text-green-700' : 'text-red-600'}">${log.selectedAnswer}</span></p>
+            ${!log.isCorrect ? `<p>正しい答え: <span class="font-bold text-green-700">${log.correctAnswer}</span></p>` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      showScreen('screen-result');
+    }
+
+    // --- クイズ・問題の管理機能 ---
+    function renderAdminList() {
+      const container = document.getElementById('admin-quiz-list');
+      if (db.quizzes.length === 0) {
+        container.innerHTML = `<p class="text-xs text-center text-gray-400 py-4">クイズが登録されていません。</p>`;
+        return;
+      }
+      container.innerHTML = db.quizzes.map(q => `
+        <div class="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+          <div>
+            <span class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-bold">${q.level}</span>
+            <h4 class="font-bold text-sm text-gray-800 mt-1">${q.title}</h4>
+            <span class="text-xs text-gray-400">問題数: ${q.questions ? q.questions.length : 0}問</span>
+          </div>
+          <div class="flex gap-1">
+            <button onclick="openQuestionBuilder('${q.id}')" class="bg-blue-400 text-white text-xs px-3 py-1.5 rounded-lg font-bold">問題追加</button>
+            <button onclick="deleteQuiz('${q.id}')" class="bg-red-400 text-white text-xs px-2 py-1.5 rounded-lg font-bold">削除</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function addQuizCategory() {
+      const title = document.getElementById('new-quiz-title').value.trim();
+      const level = document.getElementById('new-quiz-level').value;
+      if (!title) return alert('タイトルを入力してください');
+
+      db.quizzes.push({
+        id: 'q_' + Date.now(),
+        title: title,
+        level: level,
+        questions: []
+      });
+
+      saveData();
+      document.getElementById('new-quiz-title').value = '';
+      renderAdminList();
+    }
+
+    function deleteQuiz(quizId) {
+      if (!confirm('本当に削除しますか？')) return;
+      db.quizzes = db.quizzes.filter(q => q.id !== quizId);
+      saveData();
+      renderAdminList();
+    }
+
+    // --- 問題ビルダー ---
+    function openQuestionBuilder(quizId) {
+      currentQuizIdForBuilding = quizId;
+      const quiz = db.quizzes.find(q => q.id === quizId);
+      document.getElementById('builder-quiz-title').innerText = `${quiz.title} (${quiz.level})`;
+      resetQuestionForm();
+      showScreen('screen-question-builder');
+      renderQuestionsList();
+    }
+
+    function resetQuestionForm() {
+      editingQuestionId = null;
+      document.getElementById('question-form').reset();
+      document.getElementById('form-heading').innerText = '問題の追加';
+      document.getElementById('form-submit-btn').innerText = '問題を追加保存';
+      document.getElementById('form-submit-btn').className = 'w-full py-2 bg-green-500 text-white font-bold rounded-lg shadow';
+      document.getElementById('form-cancel-btn').classList.add('hidden');
+    }
+
+    function editQuestion(qItemId) {
+      const quiz = db.quizzes.find(q => q.id === currentQuizIdForBuilding);
+      const q = quiz.questions.find(x => x.id === qItemId);
+      if (!q) return;
+
+      editingQuestionId = qItemId;
+      document.getElementById('form-heading').innerText = '問題の編集 (ID: ' + qItemId.slice(-4) + ')';
+      document.getElementById('form-submit-btn').innerText = '変更を保存する';
+      document.getElementById('form-submit-btn').className = 'w-full py-2 bg-amber-500 text-white font-bold rounded-lg shadow';
+      document.getElementById('form-cancel-btn').classList.remove('hidden');
+
+      document.getElementById('q-text').value = q.text;
+      document.getElementById('q-opt1').value = q.answer;
+      const incorrects = q.options.filter(opt => opt !== q.answer);
+      document.getElementById('q-opt2').value = incorrects[0] || '';
+      document.getElementById('q-opt3').value = incorrects[1] || '';
+      document.getElementById('q-opt4').value = incorrects[2] || '';
+
+      document.getElementById('question-form').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function saveQuestion(e) {
+      e.preventDefault();
+      const quiz = db.quizzes.find(q => q.id === currentQuizIdForBuilding);
+
+      const qText = document.getElementById('q-text').value.trim();
+      const opt1 = document.getElementById('q-opt1').value.trim();
+      const opt2 = document.getElementById('q-opt2').value.trim();
+      const opt3 = document.getElementById('q-opt3').value.trim();
+      const opt4 = document.getElementById('q-opt4').value.trim();
+
+      const qImgFile = document.getElementById('q-img').files[0];
+      const qBgFile = document.getElementById('q-bg').files[0];
+
+      const newQImg = qImgFile ? await fileToBase64(qImgFile) : null;
+      const newBgImg = qBgFile ? await fileToBase64(qBgFile) : null;
+
+      if (editingQuestionId) {
+        const q = quiz.questions.find(x => x.id === editingQuestionId);
+        if (q) {
+          q.text = qText;
+          q.options = [opt1, opt2, opt3, opt4];
+          q.answer = opt1;
+          if (newQImg) q.qImg = newQImg;
+          if (newBgImg) q.bgImg = newBgImg;
+        }
+      } else {
+        quiz.questions.push({
+          id: 'qitem_' + Date.now(),
+          text: qText,
+          options: [opt1, opt2, opt3, opt4],
+          answer: opt1,
+          qImg: newQImg,
+          bgImg: newBgImg
+        });
+      }
+
+      saveData();
+      resetQuestionForm();
+      renderQuestionsList();
+    }
+
+    function renderQuestionsList() {
+      const quiz = db.quizzes.find(q => q.id === currentQuizIdForBuilding);
+      document.getElementById('q-count').innerText = quiz.questions.length;
+
+      const container = document.getElementById('builder-questions-list');
+      if (quiz.questions.length === 0) {
+        container.innerHTML = `<p class="text-xs text-center text-gray-400 py-2">問題がまだ登録されていません。</p>`;
+        return;
+      }
+      container.innerHTML = quiz.questions.map((q, idx) => `
+        <div class="bg-white p-2 rounded border flex justify-between items-center ${editingQuestionId === q.id ? 'border-amber-400 bg-amber-50' : ''}">
+          <div class="truncate max-w-[170px]">
+            <span class="font-bold">Q${idx + 1}.</span> ${q.text}
+          </div>
+          <div class="flex gap-1">
+            <button onclick="editQuestion('${q.id}')" class="bg-amber-400 text-white text-[10px] px-2 py-1 rounded font-bold">編集</button>
+            <button onclick="openCopyModal('${q.id}')" class="bg-blue-400 text-white text-[10px] px-2 py-1 rounded font-bold">コピー</button>
+            <button onclick="deleteQuestion('${q.id}')" class="text-red-500 font-bold px-1 text-xs">✕</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function deleteQuestion(qItemId) {
+      const quiz = db.quizzes.find(q => q.id === currentQuizIdForBuilding);
+      quiz.questions = quiz.questions.filter(q => q.id !== qItemId);
+      if (editingQuestionId === qItemId) resetQuestionForm();
+      saveData();
+      renderQuestionsList();
+    }
+
+    // --- 問題のコピー機能 ---
+    function openCopyModal(qItemId) {
+      const currentQuiz = db.quizzes.find(q => q.id === currentQuizIdForBuilding);
+      copyingQuestionItem = currentQuiz.questions.find(q => q.id === qItemId);
+
+      const listContainer = document.getElementById('copy-quiz-list');
+      listContainer.innerHTML = db.quizzes.map(q => `
+        <div onclick="executeCopy('${q.id}')" class="p-2.5 bg-pink-50 hover:bg-pink-100 rounded-lg cursor-pointer flex justify-between items-center border border-pink-200">
+          <div>
+            <span class="text-[10px] bg-pink-300 text-white px-1.5 py-0.5 rounded font-bold">${q.level}</span>
+            <span class="text-xs font-bold text-gray-700 ml-1">${q.title}</span>
+          </div>
+          <span class="text-xs text-pink-500 font-bold">ここへコピー 📋</span>
+        </div>
+      `).join('');
+
+      document.getElementById('copy-modal').classList.add('hidden');
+      document.getElementById('copy-modal').classList.remove('hidden');
+    }
+
+    function closeCopyModal() {
+      document.getElementById('copy-modal').classList.add('hidden');
+      copyingQuestionItem = null;
+    }
+
+    function executeCopy(targetQuizId) {
+      if (!copyingQuestionItem) return;
+      const targetQuiz = db.quizzes.find(q => q.id === targetQuizId);
+      if (!targetQuiz) return;
+
+      const duplicated = JSON.parse(JSON.stringify(copyingQuestionItem));
+      duplicated.id = 'qitem_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+      targetQuiz.questions.push(duplicated);
+      saveData();
+      closeCopyModal();
+      alert(`「${targetQuiz.title}」に問題をコピーしました！`);
+      
+      if (currentQuizIdForBuilding === targetQuizId) {
+        renderQuestionsList();
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+    }
+
+    showScreen('screen-user-select');
+  </script>
+</body>
+</html>
